@@ -1,0 +1,89 @@
+// Include Particle Device OS APIs
+//#include "Particle.h"
+
+// Let Device OS manage the connection to the Particle Cloud
+//SYSTEM_MODE(AUTOMATIC);
+
+// Show system, cloud connectivity, and application logs over USB
+// View logs with CLI using 'particle serial monitor --follow'
+//SerialLogHandler logHandler(LOG_LEVEL_INFO);
+int pinPr1 = A0;  // Pin to read from
+float voltagePr1 = 0.0;  // Variable to store the voltage
+float TC = 0.010; //V/C
+float V0 = 0.5; // V a temperatura 0C
+float TA = 0.0;
+
+int pinPr2 = A2;  // Pin to read from
+float voltagePr2 = 0.0;
+float Rpr2 = 10000.0;
+float Ron = 0.0;
+float gammaPr2 = 0.9;
+float LuxPr2 = 0.0;
+
+int pinPr3 = A3;
+float voltagePr3 = 0.0;
+bool FireFire = false;
+int ledPin = D2;
+//int pinVoltaje5 = A5;  // Pin to read from
+
+//#include <ntp-time.h>
+//static char timeServer[] = "hora.usc.es";
+//NtpTime ntptime=NtpTime(10,timeServer);
+// setup() runs once, when the device is first turned on
+void setup(){
+    // Put initialization like pinMode and begin functions here
+    //ntptime.start();
+    //Time.setTime(ntptime.now());
+    pinMode(ledPin, OUTPUT); // Configura el pin D2 como salida
+    //pinMode(pinPr1, INPUT);  
+    //pinMode(pinPr2, INPUT);  
+    //pinMode(pinPr3, INPUT);
+    //pinMode(pinVoltaje5, OUTPUT);
+    //Particle.function("readPin", readAnalogVoltage);  // Register function
+    Serial.begin(9600);
+}
+
+// loop() runs over and over again, as quickly as it can execute.
+void loop(){
+    // The core of your code will likely live here.
+    int rawValuePr1 = analogRead(pinPr1);  // Read raw analog value (0-4095)
+    int rawValuePr2 = analogRead(pinPr2);
+    int rawValuePr3 = analogRead(pinPr3);
+    voltagePr1 = (rawValuePr1 * 3.3) / 4095.0;  // Convert to voltage
+    voltagePr2 = (rawValuePr2 * 3.3) / 4095.0;  // Convert to voltage
+    //voltagePr2 = (rawValuePr2 * (3.3-2.5)) / 4095.0;  // Convert to voltage
+    voltagePr3 = (rawValuePr3 * 3.3) / 4095.0;
+    
+    TA = (voltagePr1 - V0)/TC;
+    Serial.println("Práctica 1: " + String(TA) + " grados Celsius");
+    
+    Ron = (3.3*Rpr2)/(voltagePr2) - Rpr2;
+    //LuxPr2 = exp( log(10) + (log(Ron) - log(Rpr2))/gammaPr2 );
+    //LuxPr2 = exp( log(10) + (-log(Ron) + log(Rpr2))/gammaPr2 );
+    LuxPr2 = pow( 10, log10(10) + (-log10(Ron) + log10(Rpr2))/gammaPr2);
+    Serial.println("Práctica 2: " + String(LuxPr2) + " lux");
+    
+    if(voltagePr3 >= 1.0){
+        Serial.println("Práctica 3: Fire!");
+        digitalWrite(ledPin, HIGH);
+    }
+    else{
+        Serial.println("Práctica 3: Not Fire!");    
+        digitalWrite(ledPin, LOW); 
+    }
+    
+    
+    Serial.println("");
+    //Serial.println(Time.year());
+    delay(2500);
+}
+
+// Cloud function to read A0 voltage
+//int readAnalogVoltage(String command) {
+//    int rawValue = analogRead(pin);
+//    voltage = (rawValue * 3.3) / 4095.0;
+//    
+//    Particle.publish("A0_voltage", String(voltage) + "V", PRIVATE);
+//    
+//    return rawValue;  // Returns the raw ADC value (0-4095)
+//}

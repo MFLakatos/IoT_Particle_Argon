@@ -1,0 +1,97 @@
+#include "Particle.h"
+#include "HttpClient.h"
+
+HttpClient http;
+http_request_t request;
+http_response_t response;
+
+// Headers con override de método PATCH
+http_header_t headers[] = {
+    {"Content-Type", "application/json"},
+    {"X-HTTP-Method-Override", "PATCH"},
+    {NULL, NULL}
+};
+
+// Datos del servidor
+char server[] = "172.16.240.27";
+int port = 2304;
+
+// Pines y variables
+int pinPr1 = A0;
+int pinPr2 = A2;
+int pinPr3 = A3;
+int ledPin = D2;
+
+float voltagePr1 = 0.0;
+float TC = 0.010; // V/°C
+float V0 = 0.5;   // Voltaje a 0°C
+float TA = 0.0;
+
+float voltagePr2 = 0.0;
+float Rpr2 = 10000.0;
+float Ron = 0.0;
+float gammaPr2 = 0.9;
+float LuxPr2 = 0.0;
+
+float voltagePr3 = 0.0;
+bool FireFire = false;
+
+void setup() {
+    pinMode(ledPin, OUTPUT);
+    Serial.begin(9600);
+}
+
+void loop() {
+    // Lectura de sensores
+    int raw1 = analogRead(pinPr1);
+    int raw2 = analogRead(pinPr2);
+    int raw3 = analogRead(pinPr3);
+
+    voltagePr1 = (raw1 * 3.3) / 4095.0;
+    voltagePr2 = (raw2 * 3.3) / 4095.0;
+    voltagePr3 = (raw3 * 3.3) / 4095.0;
+
+    // Temperatura
+    TA = (voltagePr1 - V0) / TC;
+
+    // Lux
+    Ron = (3.3 * Rpr2 / voltagePr2) - Rpr2;
+    LuxPr2 = pow(10, log10(10) + (-log10(Ron) + log10(Rpr2)) / gammaPr2);
+
+    // Fuego
+    FireFire = voltagePr3 >= 1.0;
+    digitalWrite(ledPin, FireFire ? HIGH : LOW);
+
+    // Mostrar por serial
+    Serial.println("Práctica 1 (Temp): " + String(TA, 1) + " °C");
+    Serial.println("Práctica 2 (Lux): " + String(LuxPr2, 1) + " lux");
+    Serial.println("Práctica 3 (Fuego): " + String(FireFire ? "¡Fuego!" : "No hay fuego"));
+
+    // Crear cuerpo del mensaje JSON
+    unsigned long localTime = Time.now() + (2 * 3600); 
+    String payload = "{";
+    payload += "\"timeInstant\": {\"value\": \"" + Time.format(localTime, TIME_FORMAT_ISO8601_FULL) + "\", \"type\": \"time\"},";
+    payload += "\"temperatura\": {\"value\": " + String(TA, 1) + ", \"type\": \"float\"},";
+    payload += "\"Luz\": {\"value\": " + String(LuxPr2, 1) + ", \"type\": \"float\"},";
+    payload += "\"Fuego\": {\"value\": " + String(FireFire ? "true" : "false") + ", \"type\": \"boolean\"}";
+    payload += "}";
+
+    // Configurar la request
+    request.hostname = server;
+    request.port = port;
+    request.path = "/v2/entities/Mote2/attrs";  
+    request.body = payload;
+
+    Serial.println("Enviando a FIWARE:");
+    Serial.println(payload);
+
+    // Enviar
+    http.post(request, response, headers);
+
+    // Respuesta
+    Serial.println("Status: " + String(response.status) + ". Observación: -1 es fallido, 204 todo bien.");
+    Serial.println("Body: " + String(response.body));
+    Serial.println("");
+
+    delay(10000);  // Esperar 10 segundos
+}

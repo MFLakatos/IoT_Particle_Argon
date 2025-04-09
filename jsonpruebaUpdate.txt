@@ -1,0 +1,10 @@
+{
+"timeInstant": {
+"value": "2025-04-09T17:08:00Z",
+"type": "time"
+},
+"temperature": {
+"value": 45.0,
+"type": "float"
+}
+}
